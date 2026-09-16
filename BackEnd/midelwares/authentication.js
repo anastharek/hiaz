@@ -336,16 +336,80 @@ const researchScopeMidelware = async function (req, res, next) {
  * supplied, Orthanc inherits patient-level tags from that parent and throws
  * HTTP 400 ("Trying to override a value inherited from a parent module").
  */
-const stripCreateDicomInheritedTags = function (req, res, next) {
+/**
+ * Determine the Orthanc resource level (patient|study|series) for a given
+ * resource ID. Used to strip only the DICOM tags Orthanc will reject as
+ * "inherited from a parent module" when creating an instance under a parent.
+ * Returns null if the lookup fails.
+ */
+async function getOrthancResourceLevel(id) {
+  const { orthancAddress, orthancPort, orthancUsername, orthancPassword } =
+    require("../model/Options").getOrthancConnexionSettings();
+  const base = `${orthancAddress}:${orthancPort}`;
+  const auth = Buffer.from(
+    `${orthancUsername}:${orthancPassword}`
+  ).toString("base64");
+  for (const [path, level] of [
+    ["series", "series"],
+    ["studies", "study"],
+    ["patients", "patient"],
+  ]) {
+    try {
+      const res = await fetch(`${base}/${path}/${id}`, {
+        headers: { Authorization: `Basic ${auth}` },
+      });
+      if (res.ok) return level;
+    } catch (e) {
+      // not this level — try the next
+    }
+  }
+  return null;
+}
+
+const stripCreateDicomInheritedTags = async function (req, res, next) {
   if (
     req.body &&
     req.body.Parent &&
     req.body.Tags &&
     typeof req.body.Tags === "object"
   ) {
+    // Patient-level tags are always inherited from the parent patient.
     delete req.body.Tags.OtherPatientIDs;
     delete req.body.Tags.PatientID;
     delete req.body.Tags.PatientName;
+
+    try {
+      const level = await getOrthancResourceLevel(req.body.Parent);
+
+      if (level === "study" || level === "series") {
+        // Study-level tags are inherited when creating under a study/series.
+        delete req.body.Tags.AccessionNumber;
+        delete req.body.Tags.StudyInstanceUID;
+        delete req.body.Tags.StudyDate;
+        delete req.body.Tags.StudyTime;
+        delete req.body.Tags.StudyDescription;
+        delete req.body.Tags.StudyID;
+        delete req.body.Tags.ReferringPhysicianName;
+      }
+      if (level === "series") {
+        // Series-level tags are inherited when adding to an existing series.
+        delete req.body.Tags.Modality;
+        delete req.body.Tags.SeriesInstanceUID;
+        delete req.body.Tags.SeriesNumber;
+        delete req.body.Tags.SeriesDate;
+        delete req.body.Tags.SeriesTime;
+        delete req.body.Tags.SeriesDescription;
+      }
+    } catch (err) {
+      // Lookup failed — fall back to stripping the tags Orthanc most
+      // commonly rejects. Orthanc will inherit the correct values.
+      console.warn(
+        "[stripCreateDicomInheritedTags] parent lookup failed:",
+        err && err.message
+      );
+      delete req.body.Tags.Modality;
+      delete req.body.Tags.AccessionNumber;
+    }
   }
   next();
 };

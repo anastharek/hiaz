@@ -313,10 +313,10 @@ class PatientReport {
       }
     }
     let description = {
-      "Patient Name": report_data.patient_name,
-      "Patient ID": report_data.patient_id,
-      "Study Type": report_data.study_type,
-      "Study ID": report_data.study_id,
+      "Patient Name": report_data ? report_data.patient_name : null,
+      "Patient ID": report_data ? report_data.patient_id : null,
+      "Study Type": report_data ? report_data.study_type : null,
+      "Study ID": report_data ? report_data.study_id : studyid,
     };
     log_activity(req, null, () => {}, ActivityType.VIEW_REPORT, description);
     return { report_data, all_addendum };
