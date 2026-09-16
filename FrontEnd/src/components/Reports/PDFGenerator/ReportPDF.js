@@ -304,7 +304,7 @@ async function GeneratePDF(report_data) {
     pageMargins: [ 40, 190, 40, 60 ], //[left, top, right, bottom] #pdf-margin
     header: [
       {
-        image: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
+        image: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR4nGNgAAIAAAUAAXpeqz8AAAAASUVORK5CYII=',
         fit: [400, 80], //tukar report template - letterhead space (no logo in PDF)
         alignment: "center",
         margin: [0, 10, 0, 10],//logo margins
