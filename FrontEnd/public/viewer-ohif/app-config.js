@@ -37,13 +37,13 @@ window.config = {
   // back to the general study/patient list (see ViewerHeader no-op too).
   showStudyList: false,
   maxNumberOfWebWorkers: 3,
-  // Cap cornerstone's decoded-image cache at 256MB (default is 3GB!). The
-  // stack prefetcher fills ~1/4 of the cache with the active series; for the
-  // AI screenshot series (1280x1969 RGB, ~10MB decoded/frame) the 3GB default
-  // made OHIF decode the whole 60-frame stack (~1.2GB with GPU textures) and
-  // crash Safari. 256MB bounds worst-case memory ~512MB (CPU+GPU) — safe on
-  // phones and desktops, and CT series (524KB/frame) still prefetch fully.
-  maxCacheSize: 268435456,
+  // Cap cornerstone's decoded-image cache. Default is 3GB. Raised from 256MB
+  // → 1GB: Cornerstone 5.x (OHIF v3.13.0) throws a FATAL CACHE_SIZE_EXCEEDED
+  // error when a new image can't fit the cache (4.x evicted gracefully), and
+  // 256MB was too small for large volumes/series — it broke image loading.
+  // 1GB still bounds worst-case memory ~2GB (CPU+GPU) on desktop while giving
+  // enough headroom for large studies.
+  maxCacheSize: 1073741824,
   showWarningMessageForCrossOrigin: true,
   showCPUFallbackMessage: true,
   showLoadingIndicator: true,
