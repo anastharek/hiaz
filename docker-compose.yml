@@ -1,200 +1,277 @@
-#version: "2"
-#if needed to map the orthancPACS to a different hard disk device (after mounting it in path)
-# volumes: ["/home/petctviewer/orthanc:/var/lib/orthanc/db:Z"]
+# =============================================================================
+#  HIAZ PACS — docker-compose.yml  (single-server / single-tenant deploy)
+# =============================================================================
+#
+#  HOW THE BUILD WORKS (IMPORTANT)
+#  -------------------------------
+#  The HEAVY part (React + OHIF viewer + Stone) is built on **your GitHub**
+#  (GitHub Actions) and pushed to Docker Hub as:
+#      anastharek/pcns-frontend-base-hiaz   (tag: latest  and  <7-char-commit-sha>)
+#
+#  This compose only runs the LIGHT "thin build" for the `app` service:
+#  it pulls the pre-built frontend base and just assembles the backend.
+#  No webpack / no Terser / no OOM — safe on any small server.
+#
+#  If you change ONLY the domain/creds, you do NOT need to rebuild the heavy
+#  frontend. If you change the frontend CODE, push to GitHub → GitHub Actions
+#  rebuilds the base → then re-run `docker compose up --build` here.
+#
+#  ⚠️  ONE THING THAT IS *NOT* ENV-DRIVEN YET:
+#  The two VIEWER URLs are hardcoded in the frontend source and baked at build
+#  time. To move to a DIFFERENT viewer domain you must edit + rebuild the
+#  frontend (see the note in "app" below). The main app domain IS env-driven.
+#
+#  WHAT TO CHANGE (grep for "CHANGE ME"):
+#    1. DOMAIN_ADDRESS + WEBSITE_DOMAIN            (main app domain)
+#    2. Secrets: TOKEN_SECRET / HASH_KEY / ORTHANC_PASSWORD / ADMIN_PASSWORD
+#    3. Host ports (left side of "host:container")
+#    4. Data paths under ./data/                    (where DICOM + DB live)
+#    5. ORTHANC__NAME / ORTHANC__DICOM_AET          (PACS name / AET title)
+#    6. DICOM modality peer (RADIOSERVER) if you receive from a scanner/server
+# =============================================================================
 
 services:
 
-    padipacs:
-        image: pdml/padimedicalstroke5:3  #6 latest code #5 #7 change header and add logo sehat hospital #5 latest version before 28/10 #9 inventory update #8 Stable pm5.1 #7 sendto #padimedicaldemo5.0:5 #4 ASSIGN DOCKTOR request features #padimedicalgleneagle4.2:7 #padimedicaldemo5.0:1 #2 add new (okay but ad bugs) #1 issue create study(date,time incorrect)
-        build:
-          context: .
-        container_name: pmstroke5.1 #tukar
-        ports: ["9156:4000"] #tukar
-        restart: unless-stopped
-        volumes: ["./orthanc3:/var/lib/orthanc/db:Z", "./BackEnd/database/migrations:/OrthancToolsJs/database/migrations:Z", "./BackEnd/database/models:/OrthancToolsJs/database/models:Z", "./BackEnd/services:/OrthancToolsJs/services:Z", "./BackEnd/cron:/OrthancToolsJs/cron:Z", "./BackEnd/controllers:/OrthancToolsJs/controllers:Z", "./BackEnd/routes:/OrthancToolsJs/routes:Z"]
-        environment:
-            TZ: "Asia/Kuala_Lumpur"
-            ORTHANC_ADDRESS: "http://orthanc"
-            ORTHANC_PORT: "8042"
-            ORTHANC_USERNAME: "${ORTHANC_USERNAME}"
-            ORTHANC_PASSWORD: "${ORTHANC_PASSWORD}"
-            DOMAIN_PROTOCOL: "https"
-            DOMAIN_ADDRESS: "stroke.padimedical.com" #tukar
-            REDIS_HOST: "redis"
-            REDIS_PORT: "6379"
-            REDIS_PASSWORD: ""
-            NODE_ENV: "production"
-            TOKEN_SECRET: "${TOKEN_SECRET}"
-            ADMIN_PASSWORD: "${ADMIN_PASSWORD}"
-            DB_HOST: "postgres"
-            DB_PORT: 5432
-            DB_NAME: "padimedical"
-            DB_USERNAME: "postgres"
-            DB_PASSWORD: ""
+  # ---------------------------------------------------------------------------
+  #  APP  (Node backend + React frontend, served on port 4000)
+  # ---------------------------------------------------------------------------
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        # Pre-built heavy frontend base (built on GitHub Actions, not here).
+        FRONTEND_BASE: anastharek/pcns-frontend-base-hiaz:latest
+    image: anastharek/pcns:hiaz
+    container_name: hiaz
+    restart: unless-stopped
+    # CHANGE ME: host port for the web app. (Left side = your host, right = 4000.)
+    ports:
+      - "4000:4000"
+    depends_on:
+      - postgres
+      - redis
+      - orthanc
+    environment:
+      TZ: "Asia/Kuala_Lumpur"
+      NODE_ENV: "production"
 
-    redis:
-        image: redis:alpine
-        container_name: redis-stroke5.1 #tukar
-        restart: unless-stopped
+      # --- Database (Postgres) ---
+      DB_HOST: "postgres"
+      DB_PORT: "5432"
+      DB_NAME: "padimedical"
+      DB_USERNAME: "postgres"
+      DB_PASSWORD: ""
 
-    postgres:
-        container_name: postgres-stroke5.1 #tukar
-        image: postgres:13.1
-        ports: ["5490:5432"] #tukar
-        environment:
-            TZ: "Asia/Kuala_Lumpur"
-            POSTGRES_DB: "padimedical"
-            POSTGRES_HOST_AUTH_METHOD: "trust"
-            PG_STORAGE_ENABLED: "true"
-            PG_INDEX_ENABLED: "true"
-        volumes:
-            - ./postgres-data:/var/lib/postgresql/data
-        restart: unless-stopped
+      # --- Cache (Redis) ---
+      REDIS_HOST: "redis"
+      REDIS_PORT: "6379"
+      REDIS_PASSWORD: ""
 
-    orthanc:
-        build: orthanc-pacs
-        #image: orthancteam/orthanc:25.12.3-full #osimis/orthanc:23.3.4 #23.3.4
-        container_name: orthanc-pmstroke5.1 #tukar
-        depends_on: [postgres]
-        ports: ["8475:8042", "4371:4242"] #tukar
-        restart: unless-stopped
-        mem_limit: 12g
-        volumes: ["./ORTHANC:/var/lib/orthanc/db:Z", "./orthanc-pacs/modify.lua:/etc/orthanc/scripts/modify.lua:ro,Z"]
-        environment:
-            TZ: "Asia/Kuala_Lumpur"
-            ORTHANC__NAME: "STROKE" #exchange
-            VERBOSE_STARTUP: "false"
-            TRACE_ENABLED: "false"
+      # --- Orthanc (DICOM server) ---
+      ORTHANC_ADDRESS: "http://orthanc"     # service name on the compose network
+      ORTHANC_PORT: "8042"
+      ORTHANC_USERNAME: "orthanc"
+      ORTHANC_PASSWORD: "a5ffd36b159dfd8865889c870bf78e33"   # CHANGE ME
 
-            ORTHANC__DICOM_SERVER_ENABLED: "true"
-            ORTHANC__LUA_SCRIPTS: '["/etc/orthanc/scripts/modify.lua"]'
-            ORTHANC__OVERWRITE_INSTANCES: "true"
-            
-            ORTHANC__DICOM_MODALITIES_IN_DATABASE: "false"
-            ORTHANC__DICOM_MODALITIES: |
-              {
-                "RADIOSERVER": ["RADIOSERVER", "10.150.244.86", 104]
-              }
-            ORTHANC__ORTHANC_PEERS_IN_DATABASE: "true"
+      # legacy (kept for parity — leave as-is)
+      OrthancAddress: "http://orthanc"
+      OrthancPort: "8042"
+      OrthancUsername: "orthanc"
+      OrthancPassword: "orthanc"
 
-            DICOM_WEB_PLUGIN_ENABLED: "true"
-            OSIMIS_WEB_VIEWER1_PLUGIN_ENABLED: "true"
-            PYTHON_PLUGIN_ENABLED: "false"
-            TRANSFERS_PLUGIN_ENABLED: "true"
-            WORKLISTS_PLUGIN_ENABLED: "false"
+      # --- NIfTI cache ---
+      NIFTI_CACHE_DIR: "/OrthancToolsJs/nifti-cache"
 
-            AUTHORIZATION_PLUGIN_ENABLE: "false"
-            ORTHANC__AUTHENTICATION_ENABLE: "false"
-            ORTHANC__AUTHENTICATION_ENABLED: "false"
+      # --- Domain (MAIN APP — env-driven, CHANGE ME) ---
+      DOMAIN_PROTOCOL: "https"
+      DOMAIN_ADDRESS: "hiaz.anzverse.com"        # CHANGE ME  (no protocol, no path)
+      WEBSITE_DOMAIN: "https://hiaz.anzverse.com"  # CHANGE ME  (full https URL)
 
-            ORTHANC__REGISTERED_USERS: '{"${ORTHANC_USERNAME}": "${ORTHANC_PASSWORD}"}'
+      # --- Viewer hosts (env-driven, CHANGE ME — read at runtime via /config.js) ---
+      # Leave empty to use the compiled-in defaults. Set to point at your
+      # viewer subdomains. These are the two values that used to be hardcoded.
+      OSIMIS_VIEWER_HOST: "https://hiazosimis.anzverse.com"   # CHANGE ME
+      STONE_VIEWER_HOST: "https://hiazviewer.anzverse.com"    # CHANGE ME
+      LEGACY_PADI_HOST: ""
 
-            ORTHANC__DICOM_WEB__ENABLE: "true"
-            ORTHANC__DICOM_WEB__ROOT: "/dicom-web/"
-            ORTHANC__DICOM_WEB__ENABLEWADO: "true"
-            ORTHANC__DICOM_WEB__WADOROOT: "/wado"
-            ORTHANC__DICOM_WEB__SSL: "true"
-            ORTHANC__DICOM_WEB__STUDIESMETADATA: "MainDicomTags"
-            ORTHANC__DICOM_WEB__SERIESMETADATA: "MainDicomTags"
+      # --- Secrets (CHANGE ME — generate fresh values) ---
+      TOKEN_SECRET: "554a1e83eb167e67a0324e4118c30d9d0dbf4f73958047f2a4ba54a3a72a8044"
+      HASH_KEY: "f97fd604540af9bfde4d97ec1a1d7479"
+      ADMIN_PASSWORD: "admin"                     # CHANGE ME
 
-            ORTHANC__DICOM__AET: "STROKE" #exchange
+    volumes:
+      # NIfTI (NIfTI->DICOM conversion cache) — keep persistent
+      - ./data/nifti-cache:/OrthancToolsJs/nifti-cache
 
-            ORTHANC__POSTGRESQL__HOST: "postgres"
-            ORTHANC__POSTGRESQL__INDEX_CONNECTIONS_COUNT: "20"
-            ORTHANC__POSTGRESQL__MAXIMUM_CONNECTION_RETRIES: "10"
-            ORTHANC__POSTGRESQL__LOCK: "false"
+  # ---------------------------------------------------------------------------
+  #  REDIS  (in-memory cache/queue)
+  # ---------------------------------------------------------------------------
+  redis:
+    image: redis:alpine
+    container_name: redis-hiaz
+    restart: unless-stopped
 
-            
+  # ---------------------------------------------------------------------------
+  #  POSTGRES  (reports + Orthanc index DB)
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: postgres:13.1
+    container_name: postgres-hiaz
+    restart: unless-stopped
+    # CHANGE ME: host port (optional — handy for psql / DB migrations)
+    ports:
+      - "5432:5432"
+    environment:
+      TZ: "Asia/Kuala_Lumpur"
+      POSTGRES_DB: "padimedical"
+      POSTGRES_HOST_AUTH_METHOD: "trust"   # no password (internal network). tighten if exposed
+      PG_STORAGE_ENABLED: "true"
+      PG_INDEX_ENABLED: "true"
+    volumes:
+      # CHANGE ME: persistent DB data lives here
+      - ./data/postgres:/var/lib/postgresql/data
 
-            #General setting
-            ORTHANC__DICOM_ALWAYS_ALLOW_STORE: "false"
-            ORTHANC__LIMIT_FIND_RESULTS: "200" #exchange
-            ORTHANC__LIMIT_FIND_INSTANCES: "100"
-            ORTHANC__STABLE_AGE: "300"
-            ORTHANC__HTTPS_VERIFY_PEERS: "true"
-            ORTHANC__ORTHANC_EXPLORER_ENABLED: "true"
-            ORTHANC__MAXIMUM_STORAGE_SIZE: "2000000" #Change storage size (was 100GB — caused data loss during RADIOSERVER flood)
-            ORTHANC__MAXIMUM_STORAGE_CACHE_SIZE: "4096" #RAM cache for recently read/written files (default 128MB → 4GB so preloaded frames stay hot)
-            # Osimis viewer plugin cache (modern ORTHANC__WEB_VIEWER__* form for orthancteam image; legacy MVB_/WVB_ env vars are deprecated and refuse startup)
-            ORTHANC__WEB_VIEWER__SHORT_TERM_CACHE_ENABLED: "true"
-            ORTHANC__WEB_VIEWER__SHORT_TERM_CACHE_SIZE: "60000" #MB — 60GB disk-backed warm cache on NAS (raised from 5GB so ~100 big XA studies stay warm; NAS is 4.4TB free)
-            ORTHANC__WEB_VIEWER__SHORT_TERM_CACHE_PREFETCH_ON_INSTANCE_STORED: "true"
-            ORTHANC__WEB_VIEWER__INSTANCE_INFO_CACHE_ENABLED: "true"
-            ORTHANC__WEB_VIEWER__HIGH_QUALITY_IMAGE_PRELOADING_ENABLED: "true"
-            ORTHANC__KEEP_ALIVE: "true"
-            ORTHANC__TCP_NO_DELAY: "true"
-            ORTHANC__STORAGE_ACCESS_ON_FIND: "Never"
-            ORTHANC__SAVE_JOBS: "false"
+  # ---------------------------------------------------------------------------
+  #  ORTHANC  (DICOM server: SCP + REST + DICOMweb + viewers)
+  # ---------------------------------------------------------------------------
+  orthanc:
+    image: orthancteam/orthanc:26.4.2-full
+    container_name: orthanc-hiaz
+    restart: unless-stopped
+    depends_on:
+      - postgres
+    # CHANGE ME: host ports. 8042 = DICOM (SCP/STORE), 4242 = REST API.
+    ports:
+      - "8042:8042"
+      - "4242:4242"
+    mem_limit: 12g
+    environment:
+      TZ: "Asia/Kuala_Lumpur"
 
-            ORTHANC__DICOM_SCU_TIMEOUT: "300"
-            ORTHANC__DICOM_SCP_TIMEOUT: "300"
-            ORTHANC__DICOM_QUERY_RETRIEVE_SIZE: 0
+      # --- Identity (CHANGE ME per install) ---
+      ORTHANC__NAME: "HIAZ"
+      ORTHANC__DICOM_AET: "PADI"
 
-            ORTHANC__HTTP_REQUEST_TIMEOUT: "30" ##default:60
-            ORTHANC__HTTP_TIMEOUT: "30"         ##60
-            ORTHANC__HTTP_CL_TIMEOUT: "120"      ##100
+      # --- Auth (CHANGE ME: must match app ORTHANC_PASSWORD) ---
+      ORTHANC__REGISTERED_USERS: '{"orthanc": "a5ffd36b159dfd8865889c870bf78e33"}'
+      ORTHANC__AUTHENTICATION_ENABLED: "false"
+      ORTHANC__AUTHENTICATION_ENABLE: "false"
+      AUTHORIZATION_PLUGIN_ENABLE: "false"
 
-            #setting to speed up
-            ORTHANC__HTTP_THREADS_COUNT: "32"
-            ORTHANC__CONCURRENT_JOBS: "2"
-            ORTHANC__TRANSFERS_RETRIES: "5"
-            ORTHANC__TRANSFERS_ENABLED: "true"
-            ORTHANC__DICOM_THREADS_COUNT: 4
-            ORTHANC__DICOM_UNKNOWN_SOP_CLASS_ACCEPTED: "true"
-            ORTHANC__SYNCHRONOUS_ZIP_STREAM: "true"
-            ORTHANC__MEDIA_ARCHIVE_SIZE: "100"
-            ORTHANC__MAXIMUM_STORAGE_MODE: "Recycle"
-            #transcoding
-            ORTHANC__HOUSEKEEPER_PLUGIN_ENABLED: "false"
-            # DISABLED — JPEG2000 codec not available in DCMTK
-            # ORTHANC__INGEST_TRANSCODING: "1.2.840.10008.1.2.4.90"
-            ORTHANC__INGEST_TRANSCODING_OF_COMPRESSED: "false"
-            ORTHANC__OverwritesInstances: "true"
-            #GDCM
-            ORTHANC__GDCM__THROTTLING: "4"
-            ORTHANC__GDCM__RESTRICT_TRANSFER_SYNTAXES: |
-              ["1.2.840.10008.5.1.4.1.1.77.1.6"]
+      # --- Storage + scripts ---
+      ORTHANC__LUA_SCRIPTS: '["/etc/orthanc/scripts/modify.lua"]'
+      ORTHANC__OVERWRITE_INSTANCES: "true"
+      ORTHANC__OverwritesInstances: "true"
+      ORTHANC__MAXIMUM_STORAGE_SIZE: "2000000"          # MB
+      ORTHANC__MAXIMUM_STORAGE_CACHE_SIZE: "4096"
+      ORTHANC__MAXIMUM_STORAGE_MODE: "Recycle"
+      ORTHANC__STORAGE_ACCESS_ON_FIND: "Never"
+      ORTHANC__SAVE_JOBS: "false"
+      ORTHANC__SYNCHRONOUS_ZIP_STREAM: "true"
+      ORTHANC__MEDIA_ARCHIVE_SIZE: "100"
+      ORTHANC__STABLE_AGE: "300"
 
-            ORTHANC__EXTRA_MAIN_DICOM_TAGS: |
-              {
-                "Instance" : [
-                    "Rows",
-                    "Columns",
-                    "ImageType",
-                    "SOPClassUID",
-                    "ContentDate",
-                    "ContentTime",
-                    "FrameOfReferenceUID",
-                    "PixelSpacing",
-                    "SpecificCharacterSet",
-                    "BitsAllocated",
-                    "BitsStored",
-                    "RescaleSlope",
-                    "RescaleIntercept",
-                    "SliceThickness",
-                    "WindowCenter",
-                    "WindowWidth",
-                    "PhotometricInterpretation",
-                    "PixelRepresentation"
-                ],
-                "Series" : [
-                    "TimezoneOffsetFromUTC",
-                    "PerformedProcedureStepStartDate",
-                    "PerformedProcedureStepStartTime",
-                    "RequestAttributesSequence"
-                ],
-                "Study": [
-                    "TimezoneOffsetFromUTC"
-                ],
-                "Patient": []
-              }
+      # --- Postgres index ---
+      ORTHANC__POSTGRESQL__HOST: "postgres"
+      ORTHANC__POSTGRESQL__LOCK: "false"
+      ORTHANC__POSTGRESQL__INDEX_CONNECTIONS_COUNT: "20"
+      ORTHANC__POSTGRESQL__MAXIMUM_CONNECTION_RETRIES: "10"
 
+      # --- DICOM server / peers ---
+      ORTHANC__DICOM_SERVER_ENABLED: "true"
+      ORTHANC__DICOM_MODALITIES_IN_DATABASE: "false"
+      ORTHANC__DICOM_MODALITIES: '{}'
+      ORTHANC__ORTHANC_PEERS_IN_DATABASE: "true"
+      ORTHANC__DICOM_ALWAYS_ALLOW_STORE: "true"
+      ORTHANC__DICOM_ALWAYS_ALLOW_ECHO: "true"
+      ORTHANC__DICOM_UNKNOWN_SOP_CLASS_ACCEPTED: "true"
+      ORTHANC__DICOM_SCU_TIMEOUT: "300"
+      ORTHANC__DICOM_SCP_TIMEOUT: "300"
+      ORTHANC__DICOM_QUERY_RETRIEVE_SIZE: "0"
 
+      # --- DICOMweb (OHIF viewer) ---
+      DICOM_WEB_PLUGIN_ENABLED: "true"
+      ORTHANC__DICOM_WEB__ENABLE: "true"
+      ORTHANC__DICOM_WEB__ROOT: "/dicom-web/"
+      ORTHANC__DICOM_WEB__ENABLEWADO: "true"
+      ORTHANC__DICOM_WEB__WADOROOT: "/wado"
+      ORTHANC__DICOM_WEB__SSL: "true"
+      ORTHANC__DICOM_WEB__STUDIESMETADATA: "MainDicomTags"
+      ORTHANC__DICOM_WEB__SERIESMETADATA: "MainDicomTags"
 
+      # --- Plugins ---
+      TRANSFERS_PLUGIN_ENABLED: "true"
+      WORKLISTS_PLUGIN_ENABLED: "false"
+      PYTHON_PLUGIN_ENABLED: "false"
+      STONE_WEB_VIEWER_PLUGIN_ENABLED: "true"
+      VOLVIEW_PLUGIN_ENABLED: "true"
+      WSI_WEB_VIEWER_PLUGIN_ENABLED: "true"
+      ORTHANC__HOUSEKEEPER_PLUGIN_ENABLED: "false"
 
+      # --- Web viewer caches ---
+      MVB_SHORT_TERM_CACHE_ENABLED: "true"
+      MVB_SHORT_TERM_CACHE_SIZE: "60000"
+      MVB_SHORT_TERM_CACHE_PREFETCH_ON_INSTANCE_STORED: "true"
+      MVB_HIGH_QUALITY_IMAGE_PRELOADING_ENABLED: "true"
+      WVB_INSTANCE_INFO_CACHE_ENABLED: "true"
 
-volumes:
-    padipacs:
-    orthanc:
-    postgres:
+      # --- Performance ---
+      ORTHANC__HTTP_THREADS_COUNT: "32"
+      ORTHANC__ORTHANC_THREADS_COUNT: "12"
+      ORTHANC__CONCURRENT_JOBS: "4"
+      ORTHANC__TRANSFERS_RETRIES: "5"
+      ORTHANC__TRANSFERS_ENABLED: "true"
+      ORTHANC__DICOM_THREADS_COUNT: "4"
+      ORTHANC__KEEP_ALIVE: "true"
+      ORTHANC__TCP_NO_DELAY: "true"
+      ORTHANC__GDCM__THROTTLING: "4"
+      ORTHANC__INGEST_TRANSCODING_OF_COMPRESSED: "false"
 
+      # --- Timeouts ---
+      ORTHANC__HTTP_REQUEST_TIMEOUT: "30"
+      ORTHANC__HTTP_TIMEOUT: "30"
+      ORTHANC__HTTP_CL_TIMEOUT: "120"
+
+      # --- Limits / misc ---
+      ORTHANC__LIMIT_FIND_RESULTS: "200"
+      ORTHANC__LIMIT_FIND_INSTANCES: "100"
+      ORTHANC__HTTPS_VERIFY_PEERS: "true"
+      ORTHANC__ORTHANC_EXPLORER_ENABLED: "true"
+
+      # --- Extra DICOM tags stored in the DB index ---
+      ORTHANC__EXTRA_MAIN_DICOM_TAGS: |
+        {
+          "Instance" : ["Rows","Columns","ImageType","SOPClassUID","ContentDate","ContentTime","FrameOfReferenceUID","PixelSpacing","SpecificCharacterSet","BitsAllocated","BitsStored","RescaleSlope","RescaleIntercept","SliceThickness","WindowCenter","WindowWidth","PhotometricInterpretation","PixelRepresentation"],
+          "Series" : ["TimezoneOffsetFromUTC","PerformedProcedureStepStartDate","PerformedProcedureStepStartTime","RequestAttributesSequence"],
+          "Study": ["TimezoneOffsetFromUTC"],
+          "Patient": []
+        }
+
+    volumes:
+      # CHANGE ME: DICOM storage (the actual pixel data). Keep on a big disk.
+      - ./data/orthanc:/var/lib/orthanc/db
+      # recompress state
+      - ./data/recompress:/var/lib/recompress
+      # modify.lua hook (auto-tags/re-route incoming studies)
+      - ./orthanc-pacs/modify.lua:/etc/orthanc/scripts/modify.lua:ro
+
+  # ---------------------------------------------------------------------------
+  #  OSIMIS SHIM  (serves the OSIMIS Web Viewer — one of the 3 viewers)
+  #  Small Node/Express proxy over Orthanc. No domain baked in.
+  # ---------------------------------------------------------------------------
+  osimis-shim:
+    build:
+      context: ./osimis-shim
+    image: anastharek/pcns-osimis-shim:hiaz
+    container_name: osimis-shim-hiaz
+    restart: unless-stopped
+    # CHANGE ME: host port for the Osimis viewer (this is the viewer subdomain).
+    ports:
+      - "8491:8491"
+    environment:
+      # Internal: talk to the orthanc service on the same network.
+      ORTHANC_URL: "http://orthanc:8042"
+      PORT: "8491"
+    depends_on:
+      - orthanc

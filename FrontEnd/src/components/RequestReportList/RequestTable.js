@@ -1,3 +1,4 @@
+import { OSIMIS_VIEWER_HOST } from "../../config/ExternalViewerHosts";
 import CommonTable from "../CommonComponents/RessourcesDisplay/ReactTable/CommonTable";
 import React, { useMemo } from "react";
 import { useSelector } from "react-redux";
@@ -125,7 +126,7 @@ export default function RequestTable({
                 row.values.study_id  //For rishab to adds on - add SeriesOrthancID
               }
               osimis_link={
-                "https://hiazosimis.anzverse.com/osimis-viewer/app/index.html?study=" +
+                OSIMIS_VIEWER_HOST + "/osimis-viewer/app/index.html?study=" +
                 row.values.study_id
               }
               OhifLink={"/viewer-ohif/viewer/dicomweb?StudyInstanceUIDs=" + row.values.StudyInstanceUID}

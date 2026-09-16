@@ -1,3 +1,4 @@
+import { STONE_VIEWER_HOST } from "../../../config/ExternalViewerHosts";
 import React, { Component, Fragment } from "react";
 import Dropdown from "react-bootstrap/Dropdown";
 import Modal from "react-bootstrap/Modal";
@@ -200,7 +201,7 @@ class ActionBoutonView extends Component {
                 onClick={(e) => {
                   e.preventDefault();
                   this.LogActivity("VIEW STONE");
-                  localStorage.setItem('temp-link',"https://hiazviewer.anzverse.com/stone-webviewer/index.html?study=" +this.props.StudyInstanceUID) 
+                  localStorage.setItem('temp-link',STONE_VIEWER_HOST + "/stone-webviewer/index.html?study=" +this.props.StudyInstanceUID) 
                   window.open("/external-page","_blank")
                  }}
                 target="_blank"

@@ -1,3 +1,4 @@
+import { OSIMIS_VIEWER_HOST } from "../../config/ExternalViewerHosts";
 import React, { useEffect, useMemo, useState } from "react";
 import { Button } from "react-bootstrap";
 import { useLocation, useParams } from "react-router-dom";
@@ -480,7 +481,7 @@ const ViewReport = () => {
               id  //For rishab to adds on - add SeriesOrthancID
             }
             osimis_link={
-              "https://hiazosimis.anzverse.com/osimis-viewer/app/index.html?study=" +
+              OSIMIS_VIEWER_HOST + "/osimis-viewer/app/index.html?study=" +
               id
             }
             OhifLink={"/viewer-ohif/viewer/dicomweb?StudyInstanceUIDs=" + StudyInstanceUID}

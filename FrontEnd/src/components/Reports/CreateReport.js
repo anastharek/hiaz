@@ -1,3 +1,4 @@
+import { OSIMIS_VIEWER_HOST } from "../../config/ExternalViewerHosts";
 import React, { useEffect, useState, Suspense } from "react";
 import Logo from "../../assets/images/fast-logo.png"; //tukar report template - logo customer (FASTPACS default)
 import { Link, useHistory, useLocation, useParams } from "react-router-dom";
@@ -1029,7 +1030,7 @@ const CreateReport = () => {
                   "https://strokesvr.padimedical.com/wsi/app/index.html?series=" + id //For rishab to adds on - add SeriesOrthancID
                 }
                 osimis_link={
-                  "https://hiazosimis.anzverse.com/osimis-viewer/app/index.html?study=" +
+                  OSIMIS_VIEWER_HOST + "/osimis-viewer/app/index.html?study=" +
                   id
                 }
                 OhifLink={"/viewer-ohif/viewer/dicomweb?StudyInstanceUIDs=" + StudyInstanceUID}

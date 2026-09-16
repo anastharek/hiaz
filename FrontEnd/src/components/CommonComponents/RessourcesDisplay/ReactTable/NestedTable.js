@@ -1,3 +1,4 @@
+import { OSIMIS_VIEWER_HOST } from "../../../../config/ExternalViewerHosts";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   useExpanded,
@@ -65,7 +66,7 @@ function SubRow({
                 element.StudyOrthancID  //For rishab to adds on - add SeriesOrthancID
               }
               osimis_link={
-                "https://hiazosimis.anzverse.com/osimis-viewer/app/index.html?study=" +
+                OSIMIS_VIEWER_HOST + "/osimis-viewer/app/index.html?study=" +
                 element.StudyOrthancID
               }
               OhifLink={"/viewer-ohif/viewer/dicomweb?StudyInstanceUIDs=" + element.StudyInstanceUID}

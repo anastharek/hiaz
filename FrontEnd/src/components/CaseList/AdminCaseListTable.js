@@ -1,3 +1,4 @@
+import { OSIMIS_VIEWER_HOST, STONE_VIEWER_HOST } from "../../config/ExternalViewerHosts";
 import CommonTable from "../CommonComponents/RessourcesDisplay/ReactTable/CommonTable";
 import React, { useMemo } from "react";
 import {
@@ -151,7 +152,7 @@ export default function AdminCaseListTable({ reports, setDelete, refresh }) {
                 row.values.study_id  //For rishab to adds on - add SeriesOrthancID
               }
               osimis_link={
-                "https://hiazosimis.anzverse.com/osimis-viewer/app/index.html?study=" +
+                OSIMIS_VIEWER_HOST + "/osimis-viewer/app/index.html?study=" +
                 row.values.study_id
               }
               OhifLink={"/viewer-ohif/viewer/dicomweb?StudyInstanceUIDs=" + row.values.StudyInstanceUID}
@@ -234,7 +235,7 @@ export default function AdminCaseListTable({ reports, setDelete, refresh }) {
               className="otjs-button otjs-button-blue"
               onClick={() => {
                 navigator.clipboard.writeText(
-                  "https://hiazosimis.anzverse.com/osimis-viewer/app/index.html?study=" +
+                  OSIMIS_VIEWER_HOST + "/osimis-viewer/app/index.html?study=" +
                     row.values.study_id
                 );
                 toast.success("Link Copied");
@@ -258,7 +259,7 @@ export default function AdminCaseListTable({ reports, setDelete, refresh }) {
               className="otjs-button otjs-button-blue"
               onClick={() => {
                 navigator.clipboard.writeText(
-                  "https://hiazviewer.anzverse.com/stone-webviewer/index.html?study=" +
+                  STONE_VIEWER_HOST + "/stone-webviewer/index.html?study=" +
                   row.values.StudyInstanceUID,
                 );
                 toast.success("Link Copied");

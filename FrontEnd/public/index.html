@@ -2,6 +2,9 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
+    <!-- Runtime config (env-driven viewer hosts). Loaded BEFORE the React
+         bundle so window.__PACS_CONFIG__ is available at module-load time. -->
+    <script src="/config.js"></script>
     <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#000000" />

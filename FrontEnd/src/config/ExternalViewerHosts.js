@@ -17,16 +17,25 @@
  *   `${OSIMIS_VIEWER_HOST}/osimis-viewer/app/index.html?study=${orthancId}`
  */
 
+// Runtime config injected at page load by the backend's /config.js route
+// (window.__PACS_CONFIG__). Values are env-driven and override the compiled
+// defaults below, so the deployment can be repointed without a rebuild.
+const runtimeCfg =
+  (typeof window !== "undefined" && window.__PACS_CONFIG__) || {};
+
 // OSIMIS Web Viewer shim — accepts the Orthanc study ID.
-export const OSIMIS_VIEWER_HOST = 'https://hiazosimis.anzverse.com';
+export const OSIMIS_VIEWER_HOST =
+  runtimeCfg.osimisViewerHost || "https://hiazosimis.anzverse.com";
 
 // Orthanc Stone Web Viewer — accepts the Orthanc study ID.
-export const STONE_VIEWER_HOST = 'https://hiazviewer.anzverse.com';
+export const STONE_VIEWER_HOST =
+  runtimeCfg.stoneViewerHost || "https://hiazviewer.anzverse.com";
 
 // Legacy host that used to serve WSI (whole-slide imaging), downloads and the
 // Orthanc REST archive endpoints. No anZverse equivalent is configured yet, so
 // these remain on the old host until one is provisioned.
-export const LEGACY_PADI_HOST = 'https://strokesvr.padimedical.com';
+export const LEGACY_PADI_HOST =
+  runtimeCfg.legacyPadiHost || "https://strokesvr.padimedical.com";
 
 export default {
   OSIMIS_VIEWER_HOST,

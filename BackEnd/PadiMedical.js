@@ -94,6 +94,24 @@ app.use("/api/authentication", authenticationRouter);
 app.use("/api/users", usersRouter);
 app.use("/api", apisRouter);
 app.use("/api", adminRouter);
+
+// Runtime config injected into the frontend at page load.
+// Lets external viewer hosts (Osimis / Stone) be changed via env vars
+// without rebuilding the frontend. Falls back to the compiled defaults when
+// the env vars are unset.
+app.get("/config.js", function (req, res) {
+  res.type("application/javascript");
+  res.send(
+    "window.__PACS_CONFIG__ = " +
+      JSON.stringify({
+        osimisViewerHost: process.env.OSIMIS_VIEWER_HOST || "",
+        stoneViewerHost: process.env.STONE_VIEWER_HOST || "",
+        legacyPadiHost: process.env.LEGACY_PADI_HOST || "",
+      }) +
+      ";\n"
+  );
+});
+
 app.use("/*", express.static(path.join(__dirname, "build")));
 
 // If didn't found route catch 404 and forward to error handler

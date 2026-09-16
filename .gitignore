@@ -50,3 +50,6 @@ nginx/
 # Restore-point artifacts stay local (NAS) — code tarballs are large, nginx sqlite holds auth hashes
 /restore-points/*/code/
 /restore-points/*/nginx-proxy-manager/
+
+# Native libs (not needed for pure-JS osimis shim)
+*.so

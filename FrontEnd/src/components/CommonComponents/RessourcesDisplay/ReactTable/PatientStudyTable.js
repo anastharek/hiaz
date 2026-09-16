@@ -1,3 +1,4 @@
+import { OSIMIS_VIEWER_HOST } from "../../../../config/ExternalViewerHosts";
 import { useMemo, useRef, useState, memo, useEffect } from "react";
 import moment from "moment";
 import CommonTable from "../../../CommonComponents/RessourcesDisplay/ReactTable/CommonTable";
@@ -278,7 +279,7 @@ const PatientStudyTable = ({
                 row.original.ID //For rishab to adds on - add SeriesOrthancID
               }
               osimis_link={
-                "https://hiazosimis.anzverse.com/osimis-viewer/app/index.html?study=" +
+                OSIMIS_VIEWER_HOST + "/osimis-viewer/app/index.html?study=" +
                 row.original.ID
               }
               OhifLink={
@@ -350,7 +351,7 @@ const PatientStudyTable = ({
           const state = preloaded[studyId];
           const prog = preloadProgress[studyId];
           const osimisLink =
-            "https://hiazosimis.anzverse.com/osimis-viewer/app/index.html?study=" +
+            OSIMIS_VIEWER_HOST + "/osimis-viewer/app/index.html?study=" +
             studyId;
           const handlePreload = () => {
             if (preloadRefs.current[studyId] || preloaded[studyId] === "done") {

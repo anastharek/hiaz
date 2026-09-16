@@ -1,3 +1,4 @@
+import { OSIMIS_VIEWER_HOST } from "../../config/ExternalViewerHosts";
 import React, { Component } from 'react'
 import { Link } from 'react-router-dom'
 
@@ -9,7 +10,7 @@ export default class StoneLink extends Component {
   render = () => {
     return (
                                                                                                       //tukar link
-      this.props.orthancID === undefined ? null : <Link className={this.props.className} to={{pathname:"https://hiazosimis.anzverse.com/osimis-viewer/app/index.html?study=" + this.props.orthancID}} target='_blank'>OSIMIS Viewer</Link>
+      this.props.orthancID === undefined ? null : <Link className={this.props.className} to={{pathname:OSIMIS_VIEWER_HOST + "/osimis-viewer/app/index.html?study=" + this.props.orthancID}} target='_blank'>OSIMIS Viewer</Link>
     )
   } 
 }
