@@ -82,7 +82,7 @@ function SubRow({
                 "weasis://?studyUID=" + element.StudyInstanceUID
               }
               downloadzip={
-                "https://strokesvr.padimedical.com/studies/" +
+                "/api/studies/" +
                 element.StudyOrthancID +
                 "/archive"
               }

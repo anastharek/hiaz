@@ -300,7 +300,7 @@ const PatientStudyTable = ({
                 row.original.MainDicomTags.StudyInstanceUID
               }
               downloadzip={
-                "https://strokesvr.padimedical.com/studies/" +
+                "/api/studies/" +
                 row.original.ID +
                 "/archive"
               }

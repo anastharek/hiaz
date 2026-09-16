@@ -169,7 +169,7 @@ export default function AdminCaseListTable({ reports, setDelete, refresh }) {
                 "weasis://?studyUID=" + row.values.StudyInstanceUID
               }
               downloadzip={
-                "https://strokesvr.padimedical.com/studies/" +
+                "/api/studies/" +
                 row.values.study_id +
                 "/archive"
               }
@@ -283,7 +283,7 @@ export default function AdminCaseListTable({ reports, setDelete, refresh }) {
               className="otjs-button otjs-button-blue"
               onClick={() => {
                 navigator.clipboard.writeText(
-                  "https://strokesvr.padimedical.com/studies/" +
+                  "/api/studies/" +
                   row.values.study_id +
                   "/archive"
                 );

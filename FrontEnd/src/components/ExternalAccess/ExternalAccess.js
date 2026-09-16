@@ -47,12 +47,10 @@ export const ExternalAccess = ({ params }) => {
               redirect = `${OSIMIS_VIEWER_HOST}/osimis-viewer/app/index.html?study=${StudyInstanceId}`; //this is orthanc id
               break;
             case "download":
-              redirect = `https://strokesvr.padimedical.com/studies/${StudyInstanceId}/archive`;
+              redirect = `/api/studies/${StudyInstanceId}/archive`;
               break;
             case "download-light": //change by rishabh 3.3.2023
-              redirect = `${
-                window.location.protocol
-              }//strokesvr.padimedical.com/studies/${
+              redirect = `/api/studies/${
                 StudyInstanceId.split("---")[1]
               }/archive`;
               break;
