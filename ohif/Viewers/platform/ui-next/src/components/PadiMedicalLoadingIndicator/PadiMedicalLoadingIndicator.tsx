@@ -57,7 +57,7 @@ function PadiMedicalLoadingIndicator({
       <img
         src={logoUrl}
         alt="PadiMedical"
-        className="max-h-[26vh] w-auto max-w-[70vw] object-contain"
+        className="h-16 w-auto max-w-[70vw] object-contain"
         draggable={false}
       />
 

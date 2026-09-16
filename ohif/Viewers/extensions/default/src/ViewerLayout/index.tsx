@@ -81,7 +81,7 @@ function ViewerLayout({
   // Stages with no measurable progress stay indeterminate (progress=null or
   // held at the last real milestone — the prefetcher is disabled in this
   // deployment, so per-image counts are NOT fabricated).
-  const [loadingProgress, setLoadingProgress] = useState(null); // 0..100 or null
+  const [loadingProgress, setLoadingProgress] = useState(0); // 0..100
   const [loadingStage, setLoadingStage] = useState('Loading study metadata…');
   const [loadingError, setLoadingError] = useState(null); // user-safe error string
   const loadingStageRef = useRef(null);
