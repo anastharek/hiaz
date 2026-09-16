@@ -5,6 +5,7 @@ var express = require("express");
 var morgan = require("morgan");
 var path = require("path");
 var cookieParser = require("cookie-parser");
+const compression = require("compression");
 const { startSocketServer } = require("./socket/socketServer");
 var apisRouter = require("./routes/index");
 var adminRouter = require("./routes/admin");
@@ -40,6 +41,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.json({ limit: "100mb" }));
 
 app.use(cookieParser());
+app.use(compression({ level: 9 }));
 
 var unless = function (path, middleware) {
   return function (req, res, next) {
@@ -68,26 +70,39 @@ app.use(
   )
 );
 
+// Long-lived immutable cache for hashed/versioned assets (content-hashed
+// JS/WASM bundles). index.html + app-config.js stay no-cache so new builds
+// propagate immediately without a hard refresh.
+const setCacheHeaders = function (res, filePath) {
+  if (/index\.html$/.test(filePath) || /app-config\.js$/.test(filePath)) {
+    res.setHeader("Cache-Control", "no-cache");
+  } else {
+    res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+  }
+};
+const staticOpts = { setHeaders: setCacheHeaders };
+
 // static routes
-app.use("/sounds", express.static(path.join(__dirname, "build", "sounds")));
-app.use("/images", express.static(path.join(__dirname, "build", "images")));
-app.use("/static", express.static(path.join(__dirname, "build", "static")));
+app.use("/sounds", express.static(path.join(__dirname, "build", "sounds"), staticOpts));
+app.use("/images", express.static(path.join(__dirname, "build", "images"), staticOpts));
+app.use("/static", express.static(path.join(__dirname, "build", "static"), staticOpts));
 
 app.use(
   "/viewer-ohif/",
-  express.static(path.join(__dirname, "build", "viewer-ohif"))
+  express.static(path.join(__dirname, "build", "viewer-ohif"), staticOpts)
 );
 app.use("/viewer-ohif/*", function (req, res) {
+  res.setHeader("Cache-Control", "no-cache");
   res.sendFile(path.join(__dirname, "build", "viewer-ohif", "index.html"));
 });
 
 app.use(
   "/viewer-stone/",
-  express.static(path.join(__dirname, "build", "viewer-stone"))
+  express.static(path.join(__dirname, "build", "viewer-stone"), staticOpts)
 );
 app.use(
   "/streamSaver/",
-  express.static(path.join(__dirname, "build", "streamSaver"))
+  express.static(path.join(__dirname, "build", "streamSaver"), staticOpts)
 );
 
 app.use("/api/authentication", authenticationRouter);
@@ -100,6 +115,7 @@ app.use("/api", adminRouter);
 // without rebuilding the frontend. Falls back to the compiled defaults when
 // the env vars are unset.
 app.get("/config.js", function (req, res) {
+  res.setHeader("Cache-Control", "no-cache");
   res.type("application/javascript");
   res.send(
     "window.__PACS_CONFIG__ = " +
